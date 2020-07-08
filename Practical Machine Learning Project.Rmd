@@ -1,0 +1,155 @@
+---
+title: "Practical Machine Learning Project"
+author: "Yanghui Zong"
+date: "7/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+One thing that people regularly do using the fitness devices is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set by using other variables.
+
+Note: The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
+
+## Load the Packages and Data
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+#library(corrplot)
+library(gbm)
+
+train <- read.csv('./pml-training.csv', header=T)
+dim(train)
+```
+
+```{r}
+test <- read.csv('./pml-testing.csv', header=T)
+dim(test)
+```
+
+## Data Preprocessing
+
+First, we remove the variables with missing values
+```{r}
+#colSums(is.na(train))
+#colSums(is.na(test))
+```
+```{r}
+# remove variables that are mostly NA
+nulls <- sapply(train, function(x) mean(is.na(x))) > 0.95
+training <- train[, nulls==FALSE]
+testing  <- test[, nulls==FALSE]
+dim(training)
+```
+```{r}
+dim(testing)
+```
+
+Since the first 7 columns are irrelevant so we can delete them
+```{r}
+training <- training[, -c(1:7)]
+dim(training)
+```
+
+```{r}
+testing <- testing[, -c(1:7)]
+dim(testing)
+```
+
+Remove variables with Nearly Zero Variance
+```{r}
+NZV <- nearZeroVar(training)
+training <- training[, -NZV]
+testing  <- testing[, -NZV]
+dim(training)
+```
+
+```{r}
+dim(testing)
+```
+
+Then we can split the training dataset into 75% training out model and 25% of testing
+```{r}
+set.seed(2020) 
+inTrain <- createDataPartition(training$classe, p = 0.75, list = FALSE)
+trainData <- training[inTrain, ]
+testData <- training[-inTrain, ]
+dim(trainData)
+```
+```{r}
+dim(testData)
+```
+
+## Model Building
+
+For this project, we will use classification trees to build a basic model and then will use random forest to see if the results improved.
+
+# Classification Trees
+
+```{r}
+#fit decision tree model with all the variables
+set.seed(2020)
+mod1 <- rpart(classe ~ ., data=trainData, method="class")
+fancyRpartPlot(mod1)
+```
+
+```{r}
+# make predictions on Test dataset
+predmod1 <- predict(mod1, newdata=testData, type="class")
+confMatmod1 <- confusionMatrix(predmod1, testData$classe)
+confMatmod1
+```
+
+# Random Forest
+
+```{r}
+# fit random forest model with all the variables with 3 cross-validations
+set.seed(2020)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+mod2 <- train(classe ~ ., data=trainData, method="rf", trControl=controlRF)
+mod2$finalModel
+```
+
+```{r}
+# prediction on Test dataset
+predmod2 <- predict(mod2, newdata=testData)
+confMatmod2 <- confusionMatrix(predmod2, testData$classe)
+confMatmod2
+```
+
+## Make Predictions on the 20 different test cases
+
+Since our random forest model has a higher accuracy score, we will will random forest on the test dataset
+
+```{r}
+predictTEST <- predict(mod2, newdata=testing)
+predictTEST
+```
+
+
+
+
+
+\\
+
+
+
+
+
+
+
+
+
+
+
